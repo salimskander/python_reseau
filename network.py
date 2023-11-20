@@ -15,18 +15,17 @@ def ip():
     print(psutil.net_if_addrs()['Wi-Fi'][1][1])
    
 
-
-first_arg = sys.argv[1]
-second_arg = sys.argv[2]
-
-if first_arg == 'lookup':
-    lookup(second_arg)
-if first_arg == 'ping':
-    ping(second_arg)
-if first_arg == 'ip':
+if argv[1] == 'lookup':
+    lookup(argv[2])
+if argv[1] == 'ping':
+    ping(argv[2])
+if argv[1] == 'ip':
     ip()
 else : 
     print (f"Déso.")
+
+
+
     
 
 
