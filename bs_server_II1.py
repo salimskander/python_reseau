@@ -1,14 +1,30 @@
 import socket
 import sys
+import signal
+
+if sys.argv[1] == '-h' or sys.argv[1] == '--help':
+    print("Usage : python3 bs_server_II1.py [OPTION] [ARGUMENT]\n\n\t-h, --help \t\t Affiche l'aide\n\t-p, --port \t\t Spécifie le port sur lequel le serveur va écouter\n\n")
+    sys.exit(0)
 
 # On choisit une IP et un port où on va écouter
 host = '' # string vide signifie, dans ce conetxte, toutes les IPs de la machine
-port = 13337 # port choisi arbitrairement
+if sys.argv[1] == '-p' or sys.argv[1] == '--port':
+    if 0 <= int(sys.argv[2]) <= 65535:
+        if 0 <= int(sys.argv[2]) <= 1024:
+            raise ValueError("ERROR Le port spécifié est un port privilégié. Spécifiez un port au dessus de 1024.")
+            sys.exit(2)
+        else:
+            port = int(sys.argv[2])
+    else:
+        raise ValueError("ERROR Le port spécifié n'est pas un port possible (de 0 à 65535).")
+        sys.exit(1)
+else:
+    port = 13337 # port choisi arbitrairement
 
 # On crée un objet socket
 # SOCK_STREAM c'est pour créer un socket TCP (pas UDP donc)
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-# On demande à notre programme de se bind sur notre port
+# On demande à notre programme de se bind sur notre portd
 s.bind((host, port))  
 
 # Place le programme en mode écoute derrière le port auquel il s'est bind
@@ -34,7 +50,12 @@ while True:
                 conn.send(b'Mes respects humble humain.')
 
     except socket.error:
-        print("Une erreur s'est produite chef !")
+        print("Error Occured.")
         break
 
-sys.exit(0)
+def signal_handler(sig, frame):
+    conn.close()
+    sys.exit(0)
+
+signal.signal(signal.SIGINT, signal_handler)
+signal.signal(signal.SIGTERM, signal_handler)
