@@ -1,14 +1,13 @@
 import socket
 
-def decode_message(data):
-    # Décode la taille du message
-    message_size = int.from_bytes(data[:4], byteorder='big')
-
-    # Décode le message
-    message = data[4:4 + message_size].decode('utf-8')
-
-    # Retourne le message et le reste des données
-    return message, data[4 + message_size:]
+def receive_int(socket, num_bytes):
+    data = b''
+    while len(data) < num_bytes:
+        chunk = socket.recv(num_bytes - len(data))
+        if not chunk:
+            raise ValueError("Déconnexion inattendue du client.")
+        data += chunk
+    return int.from_bytes(data, byteorder='big')
 
 # Configuration du serveur
 server_address = ('127.0.0.1', 9999)
@@ -16,7 +15,7 @@ server_address = ('127.0.0.1', 9999)
 # Création du socket
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server_socket.bind(server_address)
-server_socket.listen(1)
+server_socket.listen()
 
 print('Le serveur écoute sur {}:{}'.format(*server_address))
 
@@ -24,31 +23,47 @@ print('Le serveur écoute sur {}:{}'.format(*server_address))
 client_socket, client_address = server_socket.accept()
 print('Connexion depuis', client_address)
 
-try:
-    # Réception des données
-    data = b''
-    while True:
-        chunk = client_socket.recv(1024)
+while True:
+    # Réception du header
+    header = client_socket.recv(4)
+    if not header:
+        break
+
+    # Lecture de la taille du message
+    msg_len = receive_int(client_socket, 4)
+
+    print(f"Lecture des {msg_len} prochains octets")
+
+    # Une liste qui va contenir les données reçues
+    chunks = []
+
+    bytes_received = 0
+    while bytes_received < msg_len:
+        # Si on reçoit + que la taille annoncée, on lit 1024 par 1024 octets
+        chunk = client_socket.recv(min(msg_len - bytes_received, 1024))
         if not chunk:
-            break
-        data += chunk
+            raise RuntimeError('Invalid chunk received bro')
 
-    # Décodage du message
-    message, _ = decode_message(data)
-    print('Message reçu:', message)
+        # on ajoute le morceau de 1024 ou moins à notre liste
+        chunks.append(chunk)
 
-    # Évaluation de l'expression
-    try:
-        result = str(eval(message))
-    except Exception as e:
-        result = 'Erreur: {}'.format(str(e))
+        # on ajoute la quantité d'octets reçus au compteur
+        bytes_received += len(chunk)
 
-    # Envoi du résultat au client
-    result_message = result.encode('utf-8')
-    result_size = len(result_message).to_bytes(4, byteorder='big')
-    client_socket.sendall(result_size + result_message)
+    # ptit one-liner pas compliqué à comprendre pour assembler la liste en un seul message
+    message_received = b"".join(chunks).decode('utf-8')
+    print(f"Received from client: {message_received}")
 
-finally:
-    # Fermeture des connexions
-    client_socket.close()
-    server_socket.close()
+    # Vérification de la séquence de fin
+    fin_sequence = receive_int(client_socket, 4)
+    if fin_sequence == 0:
+        print("Fin de la séquence détectée")
+    else:
+        raise RuntimeError("Séquence de fin invalide.")
+
+    # Condition de sortie
+    if message_received.lower() == 'exit':
+        break
+
+client_socket.close()
+server_socket.close()

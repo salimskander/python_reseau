@@ -1,40 +1,40 @@
 import socket
+import re
 
-def encode_message(expression):
-    # Encodage de l'expression en UTF-8
-    encoded_expression = expression.encode('utf-8')
+def is_valid_expression(expression):
+    # Vérifie que l'expression est une opération arithmétique simple
+    pattern = re.compile(r'^\d+\s*[+*/-]\s*\d+$')
+    return bool(pattern.match(expression))
 
-    # Calcul de la taille du message en octets
-    message_size = len(encoded_expression).to_bytes(4, byteorder='big')
-
-    # Assemblage du message
-    message = message_size + encoded_expression
-
-    return message
-
-# Configuration du client
-server_address = ('127.0.0.1', 9999)
-
-# Création du socket
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+sock.connect(('127.0.0.1', 9999))
 
-try:
-    # Connexion au serveur
-    sock.connect(server_address)
-
+while True:
     # Saisie de l'expression arithmétique
-    expression = input('Entrez une expression arithmétique (ex: 2+x3) : ')
+    expression = input('Enter a simple arithmetic expression: ')
 
-    # Encodage et envoi du message
-    encoded_message = encode_message(expression)
-    sock.sendall(encoded_message)
+    # Vérification de l'expression
+    if not is_valid_expression(expression):
+        print("Invalid expression. Please enter a valid expression.")
+        continue
 
-    # Réception du résultat
-    data = sock.recv(1024)
-    result_size = int.from_bytes(data[:4], byteorder='big')
-    result = data[4:4 + result_size].decode('utf-8')
-    print('Résultat:', result)
+    # Encodage du message
+    encoded_msg = expression.encode('utf-8')
 
-finally:
-    # Fermeture de la connexion
-    sock.close()
+    # Calcul de la taille du message
+    msg_len = len(encoded_msg)
+
+    # Création du header
+    header = msg_len.to_bytes(4, byteorder='big')
+
+    # Concaténation du header avec le message
+    payload = header + encoded_msg
+
+    # Envoi sur le réseau
+    sock.send(payload)
+
+    # Condition de sortie
+    if expression.lower() == 'exit':
+        break
+
+sock.close()
